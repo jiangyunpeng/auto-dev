@@ -30,7 +30,7 @@ class DatabaseFunctionProvider : ToolchainFunctionProvider {
         allVariables: Map<String, Any?>,
     ): Any {
         val databaseFunction = DatabaseFunction.fromString(prop)
-            ?: throw IllegalArgumentException("Shire[Database]: Invalid Database function name")
+            ?: throw IllegalArgumentException("[Database]: Invalid Database function name")
 
         return when (databaseFunction) {
             DatabaseFunction.Schema -> listSchemas(args, project)
@@ -40,11 +40,11 @@ class DatabaseFunctionProvider : ToolchainFunctionProvider {
         }
     }
 
-    private fun listSchemas(args: List<Any>, project: Project): Any {
+    private fun listSchemas(args: List<Any>, project: Project): String {
         val dataSources = DbUtil.getDataSources(project)
-        if (dataSources.isEmpty) return ""
+        if (dataSources.isEmpty) return "[Database]: No database found"
 
-        return dataSources.mapNotNull {
+        val dataItems = dataSources.mapNotNull {
             val tableSchema = DasUtil.getTables(it).toList().mapNotNull<DasTable, String> {
                 if (it.dasParent?.name == "information_schema") return@mapNotNull null
                 getTableColumn(it)
@@ -53,14 +53,20 @@ class DatabaseFunctionProvider : ToolchainFunctionProvider {
             if (tableSchema.isEmpty()) return@mapNotNull null
             val name = it.name.substringBeforeLast('@')
             "Database Schema result:\n\n```sql\n-- DATABASE NAME: ${name};\n${tableSchema.joinToString("\n")}\n```\n"
-        }.joinToString("\n")
+        }
+
+        if (dataItems.isEmpty()) return "[Database]: No table found"
+
+        return dataItems.joinToString("\n")
     }
 
-    private fun executeTableFunction(args: List<Any>, project: Project): Any {
+    private fun executeTableFunction(args: List<Any>, project: Project): String {
         if (args.isEmpty()) {
             val dataSource = DatabaseSchemaAssistant.allRawDatasource(project).firstOrNull()
-                ?: return "ShireError[Database]: No database found"
-            return DatabaseSchemaAssistant.getTableByDataSource(dataSource)
+                ?: return "[Database]: No database found"
+            return DatabaseSchemaAssistant.getTableByDataSource(dataSource).joinToString("\n") {
+                it.toString()
+            }
         }
 
         val dbName = args.first()
@@ -89,7 +95,13 @@ class DatabaseFunctionProvider : ToolchainFunctionProvider {
             }
         }
 
-        return result
+        if (result.isEmpty()) {
+            return "[Database]: Table not found"
+        }
+
+        return result.joinToString("\n") {
+            it.toString()
+        }
     }
 
     private fun executeSqlFunction(args: List<Any>, project: Project): Any {

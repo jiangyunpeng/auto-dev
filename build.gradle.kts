@@ -61,6 +61,7 @@ changelog {
     groups.empty()
     path.set(rootProject.file("CHANGELOG.md").toString())
     repositoryUrl.set(properties("pluginRepositoryUrl"))
+    itemPrefix.set("*")
 }
 
 repositories {
@@ -113,7 +114,7 @@ configure(subprojects - project(":exts")) {
 
     val testOutput = configurations.create("testOutput")
 
-    if (this.name != "ext-terminal" && this.name != "ext-database") {
+    if (this.name != "ext-terminal" && this.name != "ext-database" && this.name != "ext-container") {
         sourceSets {
             main {
                 java.srcDirs("src/gen")
@@ -660,10 +661,29 @@ project(":exts:ext-container") {
     dependencies {
         intellijPlatform {
             intellijIde(prop("ideaVersion"))
-            intellijPlugins(ideaPlugins + prop("devContainerPlugin") + "Docker")
+            intellijPlugins(ideaPlugins + prop("devContainerPlugin") + "Docker" + "com.jetbrains.gateway")
         }
 
         implementation(project(":core"))
+    }
+
+    sourceSets {
+        main {
+            resources.srcDirs("src/$platformVersion/main/resources")
+        }
+        test {
+            resources.srcDirs("src/$platformVersion/test/resources")
+        }
+    }
+    kotlin {
+        sourceSets {
+            main {
+                kotlin.srcDirs("src/$platformVersion/main/kotlin")
+            }
+            test {
+                kotlin.srcDirs("src/$platformVersion/test/kotlin")
+            }
+        }
     }
 }
 
@@ -672,7 +692,11 @@ project(":exts:ext-endpoints") {
         intellijPlatform {
             intellijIde(prop("ideaVersion"))
             intellijPlugins(ideaPlugins + prop("endpointsPlugin") + prop("swaggerPlugin"))
-            intellijPlugins(listOf("com.intellij.spring", "com.intellij.spring.mvc"))
+            intellijPlugins(
+                listOf("com.intellij.spring", "com.intellij.spring.mvc",
+//                    "com.intellij.micronaut"
+                )
+            )
         }
 
         implementation(project(":core"))

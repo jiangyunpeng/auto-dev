@@ -15,6 +15,11 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.invokeLater
 import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.Task
+import com.intellij.openapi.progress.impl.BackgroundableProcessIndicator
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.cancellable
@@ -31,7 +36,7 @@ open class SketchInputListener(
     override val templateRender: TemplateRender get() = TemplateRender(GENIUS_CODE)
     open var systemPrompt = ""
 
-    open fun setup() {
+    open suspend fun setup() {
         systemPrompt = templateRender.renderTemplate(template, SketchRunContext.create(project, null, ""))
         toolWindow.addSystemPrompt(systemPrompt)
     }
@@ -51,24 +56,36 @@ open class SketchInputListener(
             return
         }
 
-        manualSend(userInput)
+        ApplicationManager.getApplication().invokeLater {
+            manualSend(userInput)
+        }
     }
 
     open fun getInitPrompt(): String = systemPrompt
 
     override fun manualSend(userInput: String) {
-        ApplicationManager.getApplication().executeOnPooledThread {
+        val input = userInput.trim()
+        if (input.isEmpty() || input.isBlank()) return
+        if (input == "\n") return
+
+        // if length < 10, logger for debug
+        if (input.length < 10) {
+            logger<SketchInputListener>().debug("Input.length < 10: $input")
+        }
+
+        logger<SketchInputListener>().debug("Start compiling: $input")
+        ProgressManager.getInstance().runProcessWithProgressSynchronously({
             val devInProcessor = LanguageProcessor.devin()
-            val compiledInput = runReadAction { devInProcessor?.compile(project, userInput) } ?: userInput
+            val compiledInput = runReadAction { devInProcessor?.compile(project, input) } ?: input
 
             toolWindow.beforeRun()
             toolWindow.updateHistoryPanel()
             toolWindow.addRequestPrompt(compiledInput)
 
-            val flow = chatCodingService.request(getInitPrompt(), compiledInput)
+            val flow = chatCodingService.request(getInitPrompt(), compiledInput, isFromSketch = true)
             val suggestion = StringBuilder()
 
-            AutoDevCoroutineScope.workerThread().launch {
+            AutoDevCoroutineScope.workerScope(project).launch {
                 flow.cancelHandler { toolWindow.handleCancel = it }.cancellable().collect { char ->
                     suggestion.append(char)
 
@@ -84,7 +101,7 @@ open class SketchInputListener(
 
                 toolWindow.onFinish(suggestion.toString())
             }
-        }
+        }, AutoDevBundle.message("sketch.compile.devins"), false, project);
     }
 
     override fun dispose() {

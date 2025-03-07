@@ -3,6 +3,7 @@ package cc.unitmesh.devti.bridge.utils
 import com.intellij.ide.structureView.StructureView
 import com.intellij.ide.structureView.StructureViewTreeElement
 import com.intellij.lang.LanguageStructureViewBuilder
+import com.intellij.openapi.application.invokeLater
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -13,14 +14,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 
 object StructureCommandUtil {
-    /**
-     * ```
-     * (1000-9999)
-     * ```
-     */
-    private val maxLineWith = 11
-    private val maxDepth = 5
-    private val maxLinesForShowLinNO = 60
+    private const val MAX_LINES_FOR_SHOW_LINENO = 60
 
     fun getFileStructure(project: Project, file: VirtualFile, psiFile: PsiFile): String {
         val viewFactory = LanguageStructureViewBuilder.INSTANCE.forLanguage(psiFile.language)
@@ -33,8 +27,9 @@ object StructureCommandUtil {
                 ?.createStructureView(fileEditor, project)
                 ?: return "No StructureView found."
 
-            /// close the editor
-            FileEditorManager.getInstance(project).closeFile(file)
+            invokeLater {
+                FileEditorManager.getInstance(project).closeFile(file)
+            }
 
             val root: StructureViewTreeElement = view.treeModel.root
             return traverseStructure(root, 0, StringBuilder()).toString()
@@ -52,9 +47,7 @@ object StructureCommandUtil {
     private fun traverseStructure(element: StructureViewTreeElement, depth: Int, sb: StringBuilder): StringBuilder {
         val indent = formatBeforeCode(element, depth)
         var str = element.presentation.presentableText
-//        if (!str.isNullOrBlank() && !element.presentation.locationString.isNullOrBlank()) {
-//            str += " (${element.presentation.locationString})"
-//        }
+
         if (!str.isNullOrBlank()) {
             sb.append(indent).append(str).append("\n")
         }
@@ -72,13 +65,9 @@ object StructureCommandUtil {
         return if (element.value is PsiElement) {
             val psiElement = element.value as PsiElement
             val line = formatLine(psiElement)
-            if (line.length < maxLineWith) {
-                line + " ".repeat(maxLineWith - line.length) + "  ".repeat(depth)
-            } else {
-                line + "  ".repeat(depth)
-            }
+            line + "  ".repeat(depth)
         } else {
-            " ".repeat(maxLineWith) + "  ".repeat(depth)
+            "  ".repeat(depth)
         }
     }
 
@@ -88,10 +77,10 @@ object StructureCommandUtil {
         val start = document.getLineNumber(psiElement.textRange.startOffset)
         val end = document.getLineNumber(psiElement.textRange.endOffset)
 
-        if (end - start > maxLinesForShowLinNO) {
-            return "(${start + 1}-${end + 1})"
+        if (end - start > MAX_LINES_FOR_SHOW_LINENO) {
+            return "(${start + 1}-${end + 1}) "
         }
 
-        return " ".repeat(maxDepth)
+        return ""
     }
 }

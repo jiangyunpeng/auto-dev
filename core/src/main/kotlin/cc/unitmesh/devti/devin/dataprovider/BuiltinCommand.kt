@@ -1,8 +1,10 @@
 package cc.unitmesh.devti.devin.dataprovider
 
 import cc.unitmesh.devti.AutoDevIcons
+import cc.unitmesh.devti.AutoDevNotifications
 import cc.unitmesh.devti.provider.toolchain.ToolchainFunctionProvider
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.project.ProjectManager
 import java.nio.charset.StandardCharsets
 import javax.swing.Icon
 
@@ -120,7 +122,7 @@ enum class BuiltinCommand(
 
     companion object {
         fun all(): List<BuiltinCommand> {
-            return values().toList()
+            return entries.filter { it != TOOLCHAIN_COMMAND }
         }
 
         fun example(command: BuiltinCommand): String {
@@ -146,6 +148,8 @@ enum class BuiltinCommand(
                     return TOOLCHAIN_COMMAND
                 }
 
+                val project = ProjectManager.getInstance().openProjects.first()
+                AutoDevNotifications.warn(project, "Command not found: $commandName")
                 return null
             }
 
@@ -156,6 +160,18 @@ enum class BuiltinCommand(
             val commandProviderName = commandName.substring(0, 1).uppercase() + commandName.substring(1)
             val providerName = commandProviderName + "FunctionProvider"
             return providerName
+        }
+
+        fun allToolchains(): List<String> {
+            return ToolchainFunctionProvider.all().map {
+                val toolInfo = it.toolInfo()
+                if (toolInfo != null) {
+                    val base = toolInfo.commandName
+                    return@map it.funcNames().map { "$base:$it" }
+                }
+
+                it.funcNames()
+            }.flatten()
         }
 
         val READ_COMMANDS =

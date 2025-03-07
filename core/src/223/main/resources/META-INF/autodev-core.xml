@@ -11,6 +11,7 @@
         <notificationGroup id="AutoDev.notification.group" displayType="STICKY_BALLOON" bundle="messages.AutoDevBundle"
                            key="name"/>
 
+
         <applicationConfigurable parentId="tools" instance="cc.unitmesh.devti.settings.AutoDevSettingsConfigurable"
                                  id="cc.unitmesh.devti.settings.AutoDevSettingsConfigurable"
                                  displayName="AutoDev"/>
@@ -20,15 +21,10 @@
                              id="cc.unitmesh.autodevDevOps"
                              bundle="messages.AutoDevBundle" key="settings.autodev.devops"/>
 
-        <projectConfigurable provider="cc.unitmesh.devti.agent.configurable.CoUnitToolConfigurableProvider"
+        <projectConfigurable provider="cc.unitmesh.devti.settings.customize.CustomizeConfigurableProvider"
                              parentId="cc.unitmesh.devti.settings.AutoDevSettingsConfigurable"
                              id="cc.unitmesh.counit"
                              bundle="messages.AutoDevBundle" key="customize.title"/>
-
-        <projectConfigurable provider="cc.unitmesh.devti.settings.team.TeamPromptsConfigurableProvider"
-                             parentId="cc.unitmesh.devti.settings.AutoDevSettingsConfigurable"
-                             id="cc.unitmesh.promptLibrary"
-                             bundle="messages.AutoDevBundle" key="settings.external.team.prompts.name"/>
 
         <projectConfigurable provider="cc.unitmesh.devti.settings.coder.AutoDevCoderConfigurableProvider"
                              parentId="cc.unitmesh.devti.settings.AutoDevSettingsConfigurable"
@@ -219,8 +215,11 @@
         </extensionPoint>
 
         <!--  Bridge -->
-        <extensionPoint qualifiedName="cc.unitmesh.uiComponentProvider"
-                        interface="cc.unitmesh.devti.bridge.provider.UiComponentProvider"
+        <extensionPoint qualifiedName="cc.unitmesh.componentProvider"
+                        interface="cc.unitmesh.devti.bridge.provider.ComponentViewProvider"
+                        dynamic="true"/>
+        <extensionPoint qualifiedName="cc.unitmesh.knowledgeWebApiProvide"
+                        interface="cc.unitmesh.devti.bridge.provider.KnowledgeWebApiProvider"
                         dynamic="true"/>
     </extensionPoints>
 
@@ -259,6 +258,7 @@
         <toolchainFunctionProvider implementation="cc.unitmesh.devti.bridge.archview.ContainerViewFunctionProvider"/>
         <toolchainFunctionProvider implementation="cc.unitmesh.devti.bridge.assessment.SccFunctionProvider"/>
         <toolchainFunctionProvider implementation="cc.unitmesh.devti.bridge.knowledge.HistoryFunctionProvider"/>
+        <toolchainFunctionProvider implementation="cc.unitmesh.devti.bridge.knowledge.KnowledgeFunctionProvider"/>
     </extensions>
 
     <actions>

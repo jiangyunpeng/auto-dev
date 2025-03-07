@@ -3,15 +3,18 @@ package cc.unitmesh.idea.provider
 import cc.unitmesh.devti.provider.RelatedClassesProvider
 import cc.unitmesh.idea.context.JavaContextCollection
 import cc.unitmesh.idea.service.JavaTypeUtil.resolveByType
+import cc.unitmesh.idea.util.JavaCallHelper.findCallees
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.psi.*
-import com.intellij.psi.util.*
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.util.PsiUtil
 import com.intellij.testIntegration.TestFinderHelper
 
 class JavaRelatedClassesProvider : RelatedClassesProvider {
-    override fun lookup(element: PsiElement): List<PsiClass> {
+    override fun lookupIO(element: PsiElement): List<PsiClass> {
         return when (element) {
             is PsiMethod -> findRelatedClasses(element)
                 .flatMap { findSuperClasses(it) }
@@ -24,7 +27,14 @@ class JavaRelatedClassesProvider : RelatedClassesProvider {
         }
     }
 
-    override fun lookup(element: PsiFile): List<PsiElement> {
+    override fun lookupCallee(project: Project, element: PsiElement): List<PsiNamedElement> {
+        return when (element) {
+            is PsiMethod -> runReadAction { findCallees(project, element) }
+            else -> emptyList()
+        }
+    }
+
+    override fun lookupIO(element: PsiFile): List<PsiElement> {
         return when (element) {
             is PsiJavaFile -> findRelatedClasses(element.classes.first()) + lookupTestFile(element.classes.first())
             else -> emptyList()
@@ -57,7 +67,10 @@ class JavaRelatedClassesProvider : RelatedClassesProvider {
                             val resolve = (it.type as PsiClassType).resolve() ?: return@mapNotNull null
                             if (resolve.qualifiedName == qualifiedName) return@mapNotNull null
 
-                            if (isJavaBuiltin(resolve.qualifiedName) == true || JavaContextCollection.isPopularFramework(resolve.qualifiedName) == true) {
+                            if (isJavaBuiltin(resolve.qualifiedName) == true || JavaContextCollection.isPopularFramework(
+                                    resolve.qualifiedName
+                                ) == true
+                            ) {
                                 return@mapNotNull null
                             }
 

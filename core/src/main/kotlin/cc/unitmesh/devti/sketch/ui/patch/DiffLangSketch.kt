@@ -24,7 +24,6 @@ import com.intellij.openapi.vcs.changes.patch.MatchPatchPaths
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.LightVirtualFile
-import com.intellij.ui.components.panels.HorizontalLayout
 import com.intellij.ui.components.panels.VerticalLayout
 import com.intellij.util.containers.MultiMap
 import com.intellij.util.ui.JBUI
@@ -39,14 +38,15 @@ class DiffLangSketch(private val myProject: Project, private var patchContent: S
     private val mainPanel: JPanel = JPanel(VerticalLayout(5))
     private val myHeaderPanel: JPanel = JPanel(BorderLayout())
     private val shelfExecutor = ApplyPatchDefaultExecutor(myProject)
-    private val myReader = PatchReader(patchContent).also {
+    private val myReader: PatchReader? = PatchReader(patchContent).also {
         try {
             it.parseAllPatches()
         } catch (e: Exception) {
             AutoDevNotifications.error(myProject, "Failed to parse patch: ${e.message}")
+            null
         }
     }
-    private val filePatches: MutableList<TextFilePatch> = myReader.textPatches
+    private val filePatches: MutableList<TextFilePatch> = myReader?.textPatches ?: mutableListOf()
 
     init {
         if (filePatches.size > 1 || filePatches.any { it.beforeFileName == null }) {
@@ -60,7 +60,7 @@ class DiffLangSketch(private val myProject: Project, private var patchContent: S
         ApplicationManager.getApplication().invokeLater {
             if (filePatches.isEmpty()) {
                 val msg = "PatchProcessor: no valid patches found, please check the patch content"
-                AutoDevNotifications.error(myProject, msg)
+                AutoDevNotifications.warn(myProject, msg)
 
                 val repairButton = JButton("Repair").apply {
                     icon = AllIcons.Actions.IntentionBulb
@@ -77,12 +77,13 @@ class DiffLangSketch(private val myProject: Project, private var patchContent: S
                     }
                 }
 
-                val actionPanel = Box.createHorizontalBox()
-                actionPanel.add(Box.createHorizontalGlue())
+                val panel = JPanel()
+                panel.layout = BoxLayout(panel, BoxLayout.X_AXIS)
+                panel.add(repairButton)
+                mainPanel.add(panel)
 
-                mainPanel.add(actionPanel)
-
-                return@invokeLater            }
+                return@invokeLater
+            }
 
             filePatches.forEachIndexed { _, patch ->
                 val diffPanel = when {
@@ -173,7 +174,7 @@ class DiffLangSketch(private val myProject: Project, private var patchContent: S
             }
 
             val pathsFromGroups = ApplyPatchDefaultExecutor.pathsFromGroups(patchGroups)
-            val additionalInfo = myReader.getAdditionalInfo(pathsFromGroups)
+            val additionalInfo = myReader?.getAdditionalInfo(pathsFromGroups)
             shelfExecutor.apply(filePatches, patchGroups, null, "LlmGen.diff", additionalInfo)
         }, "ApplyPatch", null, UndoConfirmationPolicy.REQUEST_CONFIRMATION, false)
     }

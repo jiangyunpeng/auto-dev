@@ -10,11 +10,14 @@ import com.intellij.lang.ecmascript6.resolve.JSFileReferencesUtil
 import com.intellij.lang.javascript.buildTools.npm.PackageJsonUtil
 import com.intellij.lang.javascript.psi.ecma6.TypeScriptPropertySignature
 import com.intellij.lang.javascript.psi.resolve.JSResolveUtil
+import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
+import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.impl.source.html.HtmlFileImpl
 import com.intellij.psi.xml.XmlFile
 import com.intellij.util.asSafely
@@ -28,13 +31,19 @@ import java.util.*
  * based on [org.jetbrains.vuejs.web.scopes.VueCodeModelSymbolsScope]
  */
 class VueRelatedClassProvider : RelatedClassesProvider {
-    override fun lookup(element: PsiElement): List<PsiElement> {
+    override fun lookupIO(element: PsiElement): List<PsiElement> {
         if (element !is XmlFile) return emptyList()
-
         return emptyList()
     }
 
-    override fun lookup(psiFile: PsiFile): List<PsiElement> {
+    /**
+     * Only support for
+     */
+    override fun lookupCallee(project: Project, element: PsiElement): List<PsiNamedElement> {
+        return super.lookupCallee(project, element)
+    }
+
+    override fun lookupIO(psiFile: PsiFile): List<PsiElement> {
         if (psiFile !is XmlFile) return emptyList()
 
         val scriptTag = findScriptTag(psiFile, true) ?: findScriptTag(psiFile, false) ?: return emptyList()
@@ -53,7 +62,15 @@ class VueRelatedClassProvider : RelatedClassesProvider {
                         is ES6ExportDefaultAssignment, is HtmlFileImpl -> source.containingFile.virtualFile?.url?.let {
                             listOf(WebTypesSymbolLocation(it, "default"))
                         }
-                        else -> null
+                        is ES6NamedImports -> {
+                            source.specifiers.mapNotNull { specifier ->
+                                symbolLocationsFromSpecifier(specifier)
+                            }.flatten()
+                        }
+                        else -> {
+                            logger<VueRelatedClassProvider>().warn("Unsupported import source: $source")
+                            null
+                        }
                     }
 
                 }.flatten()

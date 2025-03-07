@@ -13,6 +13,7 @@ import cc.unitmesh.devti.sketch.ui.ExtensionLangSketch
 import cc.unitmesh.devti.sketch.ui.LangSketch
 import cc.unitmesh.devti.sketch.ui.LanguageSketchProvider
 import cc.unitmesh.devti.sketch.ui.code.CodeHighlightSketch
+import cc.unitmesh.devti.util.AutoDevCoroutineScope
 import cc.unitmesh.devti.util.parser.CodeFence
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
@@ -21,7 +22,6 @@ import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.impl.ActionButton
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.runInEdt
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileTypes.PlainTextLanguage
@@ -37,6 +37,7 @@ import com.intellij.ui.dsl.builder.Row
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
+import kotlinx.coroutines.launch
 import org.jetbrains.annotations.NonNls
 import java.awt.BorderLayout
 import java.awt.Dimension
@@ -63,6 +64,13 @@ open class SketchToolWindow(
     open val chatCodingService = ChatCodingService(chatActionType, project)
     open val inputListener: SketchInputListener = SketchInputListener(project, chatCodingService, this)
     private var progressBar: CustomProgressBar = CustomProgressBar(this)
+    private var thinkingHighlight: CodeHighlightSketch = CodeHighlightSketch(project, "<Thinking />", PlainTextLanguage.INSTANCE)
+    private var thinkingPanel = panel {
+        row {
+            cell(thinkingHighlight).fullWidth()
+        }
+    }
+
     private var inputSection: AutoDevInputSection = AutoDevInputSection(project, this, showAgent = false)
 
     private var myText: String = ""
@@ -153,25 +161,36 @@ open class SketchToolWindow(
             }
         })
 
-        contentPanel.add(progressBar, BorderLayout.SOUTH)
-
         if (showInput) {
             ApplicationManager.getApplication().invokeLater {
-                setupListener()
+                AutoDevCoroutineScope.scope(project).launch {
+                    setupListener()
+                }
             }
         }
 
         setContent(contentPanel)
     }
 
-    private fun setupListener() {
+    private suspend fun setupListener() {
         inputSection.also {
             it.border = JBUI.Borders.empty(8)
         }
 
         inputListener.setup()
         inputSection.addListener(inputListener)
-        contentPanel.add(inputSection, BorderLayout.SOUTH)
+
+        contentPanel.add(panel {
+            row {
+                cell(progressBar).fullWidth()
+            }
+            row {
+                cell(thinkingPanel).fullWidth()
+            }
+            row {
+                cell(inputSection).fullWidth()
+            }
+        }, BorderLayout.SOUTH)
 
         addProcessListener(object : SketchProcessListener {
             override fun onBefore() {
@@ -235,7 +254,6 @@ open class SketchToolWindow(
             this.repaint()
         }
     }
-
 
     fun addSystemPrompt(text: String) {
         runInEdt {
@@ -388,6 +406,19 @@ open class SketchToolWindow(
         myList.removeAll()
         historyPanel.removeAll()
         initializePreAllocatedBlocks(project)
+    }
+
+    fun printThinking(string: String) {
+        runInEdt {
+            thinkingPanel.isVisible = true
+            thinkingHighlight.updateViewText(string, false)
+        }
+    }
+
+    fun hiddenThinking() {
+        runInEdt {
+            thinkingPanel.isVisible = false
+        }
     }
 }
 

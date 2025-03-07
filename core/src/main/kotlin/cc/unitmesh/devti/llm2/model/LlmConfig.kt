@@ -14,20 +14,24 @@ data class Auth(
 @Serializable
 data class LlmConfig(
     val name: String,
-    val description: String,
+    val description: String = "",
     val url: String,
     val auth: Auth,
     val requestFormat: String,
     val responseFormat: String,
-    val modelType: ModelType,
+    val modelType: ModelType = ModelType.Others
 ) {
     companion object {
         fun load(): List<LlmConfig> {
+            val llms = AutoDevSettingsState.getInstance().customLlms.trim()
+            if (llms.isEmpty()) {
+                return emptyList()
+            }
+
             val configs: List<LlmConfig> = try {
-                val llms = AutoDevSettingsState.getInstance().customLlms
                 Json.decodeFromString(llms)
             } catch (e: Exception) {
-                emptyList()
+                throw Exception("Failed to load custom llms: $e")
             }
 
             return configs

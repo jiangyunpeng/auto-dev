@@ -1,5 +1,6 @@
 package cc.unitmesh.devti.language.compiler
 
+import cc.unitmesh.devti.AutoDevNotifications
 import cc.unitmesh.devti.agent.model.CustomAgentConfig
 import cc.unitmesh.devti.custom.compile.VariableTemplateCompiler
 import cc.unitmesh.devti.devin.InsCommand
@@ -15,14 +16,21 @@ import cc.unitmesh.devti.language.psi.DevInTypes
 import cc.unitmesh.devti.language.psi.DevInUsed
 import cc.unitmesh.devti.provider.toolchain.ToolchainFunctionProvider
 import cc.unitmesh.devti.util.parser.CodeFence
+import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.Task
+import com.intellij.openapi.progress.impl.BackgroundableProcessIndicator
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.guessProjectDir
 import com.intellij.openapi.util.NlsSafe
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.elementType
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 
 val CACHED_COMPILE_RESULT = mutableMapOf<String, DevInsCompiledResult>()
 
@@ -93,6 +101,7 @@ class DevInsCompiler(
                 val originCmdName = id?.text ?: ""
                 val command = BuiltinCommand.fromString(originCmdName)
                 if (command == null) {
+                    AutoDevNotifications.notify(myProject, "Cannot find command: $originCmdName")
                     CustomCommand.fromString(myProject, originCmdName)?.let { cmd ->
                         DevInFile.fromString(myProject, cmd.content).let { file ->
                             DevInsCompiler(myProject, file).compile().let {
@@ -338,8 +347,25 @@ class DevInsCompiler(
             listOf()
         }
 
-        val result = provider.execute(myProject, prop, args, emptyMap())
-        return PrintInsCommand(result.toString())
+        val future = CompletableFuture<String>()
+        val task = object : Task.Backgroundable(myProject, "Processing context", false) {
+            override fun run(indicator: ProgressIndicator) {
+                val result = try {
+                    provider.execute(myProject!!, prop, args, emptyMap())
+                } catch (e: Exception) {
+                    logger<DevInsCompiler>().warn(e)
+                    val text = runReadAction { used.text }
+                    AutoDevNotifications.notify(myProject!!, "Error executing toolchain function: $text + $prop")
+                }
+
+                future.complete(result.toString())
+            }
+        }
+
+        ProgressManager.getInstance()
+            .runProcessWithProgressAsynchronously(task, BackgroundableProcessIndicator(task))
+
+        return PrintInsCommand(future.get(30, TimeUnit.SECONDS))
     }
 
     private fun lookupNextCode(used: DevInUsed): CodeBlockElement? {

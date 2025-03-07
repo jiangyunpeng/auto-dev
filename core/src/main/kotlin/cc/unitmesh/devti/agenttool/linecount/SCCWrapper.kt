@@ -1,8 +1,10 @@
-package cc.unitmesh.devti.bridge.command
+package cc.unitmesh.devti.agenttool.linecount
 
+import com.intellij.execution.configurations.GeneralCommandLine
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.nio.charset.StandardCharsets
 
 @Serializable
 data class SccResult(
@@ -31,44 +33,23 @@ data class FileInfo(
     @SerialName("Complexity") val complexity: Long
 )
 
-class SccWrapper(
-    private val sccPath: String = "scc", private val timeoutSeconds: Long = 60
-) {
+class SccWrapper(): CmdWrapper<SccResult> {
     private val jsonParser = Json { ignoreUnknownKeys = true }
 
-    /**
-     * 同步执行 scc 命令
-     * @param arguments scc 命令行参数
-     */
-    fun runSccSync(vararg arguments: String): List<SccResult> {
-        val command = buildCommand(arguments)
-        val process = ProcessBuilder(command)
-            .redirectErrorStream(true)
-            .start()
+    override fun buildCommand(arguments: Array<out String>): GeneralCommandLine {
+        val sccPath = findBinary("scc")
+            ?: throw SccException("scc binary not found, please install it first: https://ide.unitmesh.cc/bridge")
 
-        val output = process.inputStream.reader().use { reader ->
-            reader.readText()
-        }
+        val cmd = GeneralCommandLine(sccPath.toString())
 
-        val exitCode = process.waitFor()
-        if (exitCode != 0) {
-            throw SccException("scc exited with code $exitCode. Output: $output")
-        }
+        cmd.addParameters(arguments.toList())
+        cmd.addParameters("--format", "json")
 
-        return parseResult(output)
+        cmd.charset = StandardCharsets.UTF_8
+        return cmd
     }
 
-    private fun buildCommand(arguments: Array<out String>): List<String> {
-        val baseCommand = if (sccPath.contains(" ")) {
-            listOf("cmd", "/c", sccPath)
-        } else {
-            listOf(sccPath)
-        }
-
-        return baseCommand + arguments.toList() + "--format" + "json"
-    }
-
-    private fun parseResult(json: String): List<SccResult> {
+    override fun parseResult(json: String): List<SccResult> {
         return try {
             jsonParser.decodeFromString<List<SccResult>>(json)
         } catch (e: Exception) {
@@ -86,7 +67,7 @@ class SccWrapper(
             }
         }
 
-        return runSccSync(*args.toTypedArray())
+        return runSync(*args.toTypedArray())
     }
 }
 

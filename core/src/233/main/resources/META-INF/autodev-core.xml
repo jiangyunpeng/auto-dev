@@ -25,11 +25,6 @@
                              id="cc.unitmesh.counit"
                              bundle="messages.AutoDevBundle" key="customize.title"/>
 
-        <projectConfigurable provider="cc.unitmesh.devti.settings.team.TeamPromptsConfigurableProvider"
-                             parentId="cc.unitmesh.devti.settings.AutoDevSettingsConfigurable"
-                             id="cc.unitmesh.promptLibrary"
-                             bundle="messages.AutoDevBundle" key="settings.external.team.prompts.name"/>
-
         <projectConfigurable provider="cc.unitmesh.devti.settings.coder.AutoDevCoderConfigurableProvider"
                              parentId="cc.unitmesh.devti.settings.AutoDevSettingsConfigurable"
                              id="cc.unitmesh.autodevCoder"
@@ -222,6 +217,9 @@
         <extensionPoint qualifiedName="cc.unitmesh.componentProvider"
                         interface="cc.unitmesh.devti.bridge.provider.ComponentViewProvider"
                         dynamic="true"/>
+        <extensionPoint qualifiedName="cc.unitmesh.knowledgeWebApiProvide"
+                        interface="cc.unitmesh.devti.bridge.provider.KnowledgeWebApiProvider"
+                        dynamic="true"/>
     </extensionPoints>
 
     <applicationListeners>
@@ -250,6 +248,8 @@
             <bundleName>messages.AutoDevBundle</bundleName>
             <categoryKey>intention.category.llm</categoryKey>
         </autoDevIntention>
+        
+        <chatContextProvider implementation="cc.unitmesh.devti.provider.context.IdeVersionChatContextProvider"/>
 
         <langSketchProvider implementation="cc.unitmesh.devti.sketch.ui.patch.DiffLangSketchProvider"/>
         <langSketchProvider implementation="cc.unitmesh.devti.sketch.ui.webview.WebpageSketchProvider"/>
@@ -259,6 +259,7 @@
         <toolchainFunctionProvider implementation="cc.unitmesh.devti.bridge.archview.ContainerViewFunctionProvider"/>
         <toolchainFunctionProvider implementation="cc.unitmesh.devti.bridge.assessment.SccFunctionProvider"/>
         <toolchainFunctionProvider implementation="cc.unitmesh.devti.bridge.knowledge.HistoryFunctionProvider"/>
+        <toolchainFunctionProvider implementation="cc.unitmesh.devti.bridge.knowledge.KnowledgeFunctionProvider"/>
     </extensions>
 
     <actions>

@@ -14,6 +14,7 @@ import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
@@ -143,7 +144,11 @@ open class CodeHighlightSketch(
 
             val document = editorFragment?.editor?.document
             val normalizedText = StringUtil.convertLineSeparators(text)
-            document?.replaceString(0, document.textLength, normalizedText)
+            try {
+                document?.replaceString(0, document.textLength, normalizedText)
+            } catch (e: Throwable) {
+                logger<CodeHighlightSketch>().error("Error updating editor text", e)
+            }
 
             val lineCount = document?.lineCount ?: 0
             if (lineCount > editorLineThreshold) {
@@ -245,11 +250,10 @@ open class CodeHighlightSketch(
             }
 
             val file: VirtualFile = if (fileName != null) {
-//                ScratchRootType.getInstance().createScratchFile(project, fileName, language, editorText)
-//                    ?:
                 LightVirtualFile(fileName, language, editorText)
             } else {
-                LightVirtualFile("shire.${ext}", language, editorText)
+                val fileTimeSuffix = System.currentTimeMillis()
+                LightVirtualFile("autodev-${fileTimeSuffix}.${ext}", language, editorText)
             }
             val document: Document = file.findDocument() ?: throw IllegalStateException("Document not found")
 
